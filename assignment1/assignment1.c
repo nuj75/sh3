@@ -22,7 +22,7 @@ ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
 
     result = sprintf(buffer, jiffies / HZ);
 
-    return rv;
+    return result;
 }
 
 static struct file_operations proc_ops = {
