@@ -36,7 +36,7 @@ int proc_start(void)
     return 0;
 }
 
-int proc_quit(void)
+void proc_exit(void)
 {
     remove_proc_entry("seconds", NULL);
 }
