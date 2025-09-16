@@ -31,7 +31,7 @@ static struct file_operations proc_ops = {
 }
 
 int
-proc_start(void)
+proc_init(void)
 {
     proc_create("seconds", 0, NULL, &proc_ops);
 
