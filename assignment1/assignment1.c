@@ -5,7 +5,7 @@
 #include <linux/uaccess.h>
 #include <linux/jiffies.h>
 
-ssize_t proc_read(struct file *file, char *buf, size_t, count, loff_t *pos)
+ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
 {
     int result = 0;
     char buffer[BUFFER_SIZE];
