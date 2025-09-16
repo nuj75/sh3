@@ -25,7 +25,7 @@ ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
     return result;
 }
 
-static struct file_operations proc_ops = {
+static const struct proc_ops proc_ops = {
     .owner = THIS_MODULE,
     .read = proc_read,
 }
@@ -42,5 +42,5 @@ int proc_quit(void)
 {
     remove_proc_entry("seconds", NULL);
 }
-module_init(proc_start);
+module_init(proc_init);
 module_exit(proc_quit);
