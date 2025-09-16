@@ -29,7 +29,7 @@ static const struct proc_ops my_proc_ops = {
     .proc_read = proc_read,
 };
 
-int proc_init(void)
+int proc_start(void)
 {
     proc_create("seconds", 0, NULL, &my_proc_ops);
 
@@ -40,5 +40,5 @@ int proc_quit(void)
 {
     remove_proc_entry("seconds", NULL);
 }
-module_init(proc_init);
-module_exit(proc_quit);
+module_init(proc_start);
+module_exit(proc_exit);
