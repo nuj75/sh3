@@ -25,15 +25,13 @@ ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
     return result;
 }
 
-static const struct proc_ops proc_ops = {
-    .owner = THIS_MODULE,
-    .read = proc_read,
-}
+static const struct proc_ops my_proc_ops = {
+    .proc_read = proc_read,
+};
 
-int
-proc_init(void)
+int proc_init(void)
 {
-    proc_create("seconds", 0, NULL, &proc_ops);
+    proc_create("seconds", 0, NULL, &my_proc_ops);
 
     return 0;
 }
