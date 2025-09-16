@@ -8,7 +8,7 @@
 ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
 {
     int result = 0;
-    char buffer[BUFFER_SIZE];
+    char buffer[128];
 
     static int complete = 0;
 
