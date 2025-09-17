@@ -5,7 +5,7 @@
 #include <linux/uaccess.h>
 #include <linux/jiffies.h>
 
-ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
+ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t *pos)
 {
     int result = 0;
     char buffer[128];
@@ -20,8 +20,8 @@ ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
 
     complete = 1;
 
-    printf("hello");
-    result = sprintf(buffer, jiffies / HZ);
+    result = snprintf(buffer, sizeof(buffer), "%lu\n", (unsigned long int)jiffies / (unsigned long int)HZ);
+    copy_to_user(usr_buf, buffer, result);
 
     return result;
 }
