@@ -20,6 +20,7 @@ ssize_t proc_read(struct file *file, char *buf, size_t count, loff_t *pos)
 
     complete = 1;
 
+    printf("hello");
     result = sprintf(buffer, jiffies / HZ);
 
     return result;
