@@ -5,6 +5,15 @@
 #include <linux/uaccess.h>
 #include <linux/jiffies.h>
 
+/*
+ 5.15.0-87-generic
+ No LSB modules are available.
+ Distributor ID: Ubuntu
+ Description: Ubuntu 22.04.3 LTS
+ Release: 22.04
+ Codename: jammy
+*/
+
 ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t *pos)
 {
     int result = 0;
