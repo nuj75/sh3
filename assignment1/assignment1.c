@@ -14,7 +14,13 @@
  Codename: jammy
 */
 
-static unsigned long start_jiffies;
+static unsigned long start_jiffies; // Global variable to store the start time
+
+/* Function prototypes */
+ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t *pos);
+int proc_start(void);
+void proc_exit(void);
+
 ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t *pos)
 {
     int result = 0;
@@ -29,29 +35,46 @@ ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t 
 
     complete = 1;
 
-    unsigned long elapsed = (jiffies - start_jiffies) / HZ;
-    result = snprintf(buffer, sizeof(buffer), "%lu\n", elapsed);
+    unsigned long elapsed = (jiffies - start_jiffies) / HZ; // Calculate elapsed seconds since the module was loaded
+    result = snprintf(buffer, sizeof(buffer), "%lu\n", elapsed); // Format elapsed seconds into the buffer
     copy_to_user(usr_buf, buffer, result);
 
     return result;
 }
 
+/* Define the proc file operations for the /proc/seconds entry */
 static const struct proc_ops my_proc_ops = {
     .proc_read = proc_read,
 };
 
+/*
+ * proc_start - called when the module is loaded
+ *
+ * This function records the current value of jiffies to measure elapsed 
+ * time later and creates the /proc/seconds entry with the specified
+ * proc operations.
+ */
 int proc_start(void)
 {
-    start_jiffies = jiffies;
-    proc_create("seconds", 0, NULL, &my_proc_ops);
+    start_jiffies = jiffies; // Record module load time
 
+    proc_create("seconds", 0, NULL, &my_proc_ops); // Create the /proc/seconds entry
+    printk(KERN_INFO "/proc/seconds created\n");
     return 0;
 }
 
+/*
+ * proc_exit - called when the module is removed
+ *
+ * This function removes the /proc/seconds entry to clean up the kernel
+ * before the module is unloaded.
+ */
 void proc_exit(void)
 {
     remove_proc_entry("seconds", NULL);
+    printk(KERN_INFO "/proc/seconds removed\n");
 }
+
 module_init(proc_start);
 module_exit(proc_exit);
 
