@@ -14,11 +14,11 @@
  Codename: jammy
 */
 
+static unsigned long start_jiffies;
 ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t *pos)
 {
     int result = 0;
     char buffer[128];
-
     static int complete = 0;
 
     if (complete)
@@ -29,7 +29,8 @@ ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t 
 
     complete = 1;
 
-    result = snprintf(buffer, sizeof(buffer), "%lu\n", (unsigned long int)jiffies / (unsigned long int)HZ);
+    unsigned long elapsed = (jiffies - start_jiffies) / HZ;
+    result = snprintf(buffer, sizeof(buffer), "%lu\n", elapsed);
     copy_to_user(usr_buf, buffer, result);
 
     return result;
@@ -41,6 +42,7 @@ static const struct proc_ops my_proc_ops = {
 
 int proc_start(void)
 {
+    start_jiffies = jiffies;
     proc_create("seconds", 0, NULL, &my_proc_ops);
 
     return 0;
