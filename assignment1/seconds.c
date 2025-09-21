@@ -35,7 +35,7 @@ ssize_t proc_read(struct file *file, char __user *usr_buf, size_t count, loff_t 
 
     complete = 1;
 
-    unsigned long elapsed = (jiffies - start_jiffies) / HZ; // Calculate elapsed seconds since the module was loaded
+    unsigned long elapsed = (jiffies - start_jiffies) / HZ;      // Calculate elapsed seconds since the module was loaded
     result = snprintf(buffer, sizeof(buffer), "%lu\n", elapsed); // Format elapsed seconds into the buffer
     copy_to_user(usr_buf, buffer, result);
 
@@ -50,7 +50,7 @@ static const struct proc_ops my_proc_ops = {
 /*
  * proc_start - called when the module is loaded
  *
- * This function records the current value of jiffies to measure elapsed 
+ * This function records the current value of jiffies to measure elapsed
  * time later and creates the /proc/seconds entry with the specified
  * proc operations.
  */
