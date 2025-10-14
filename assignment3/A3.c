@@ -5,10 +5,6 @@
 #include <unistd.h>
 #include <stdio.h>
 
-// semaphore for getting seats
-// semaphore for waiting for TA
-// semaphore for TA helping
-
 sem_t seats;
 sem_t enter_ta_room;
 sem_t ta_helping;
