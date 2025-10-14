@@ -10,23 +10,25 @@
 
 int main()
 {
-    char *args[MAX_LINE / 2 + 1];   
-    int should_run = 1;              
+    char *args[MAX_LINE / 2 + 1];
+    int should_run = 1;
 
-    char *history[5];                
-    int history_count = 0;          
+    char *history[5];
+    int history_count = 0;
 
-    for (int i = 0; i < 5; i++) 
+    for (int i = 0; i < 5; i++)
     {
         history[i] = malloc(MAX_LINE + 1);
-        
-        if (history[i] == NULL) {
+
+        if (history[i] == NULL)
+        {
             return 1;
         }
         history[i][0] = '\0';
     }
 
-    while (should_run) {
+    while (should_run)
+    {
 
         char buf[MAX_LINE];
 
@@ -38,28 +40,36 @@ int main()
         buf[strlen(buf) - 1] = '\0';
 
         // Exit condition
-        if (strcmp(buf, "exit") == 0) {
+        if (strcmp(buf, "exit") == 0)
+        {
             should_run = 0;
             break;
         }
 
-        // print command history 
-	    if (strcmp(buf, "history") == 0) {
-    		int count = (history_count < 5) ? history_count : 5;
-    		for (int i = 0; i < count; i++) {
-        		int index = (history_count - 1 - i) % 5;
-        		if (index < 0) index += 5; // handle wrap-around safely
-        		printf("%d %s\n", history_count - i, history[index]);
-    		}
-    		continue;
-	    }
+        // print command history
+        if (strcmp(buf, "history") == 0)
+        {
+            int count = (history_count < 5) ? history_count : 5;
+            for (int i = 0; i < count; i++)
+            {
+                int index = (history_count - 1 - i) % 5;
+                if (index < 0)
+                    index += 5; // handle wrap-around safely
+                printf("%d %s\n", history_count - i, history[index]);
+            }
+            continue;
+        }
 
         // handle !!
-        if (strcmp(buf, "!!") == 0) {
-            if (history_count == 0) {
+        if (strcmp(buf, "!!") == 0)
+        {
+            if (history_count == 0)
+            {
                 printf("No commands in history.\n");
                 continue;
-            } else {
+            }
+            else
+            {
                 // replace !! with most recent command
                 snprintf(buf, MAX_LINE, "%s", history[(history_count - 1) % 5]);
                 printf("%s\n", buf);
@@ -114,7 +124,8 @@ int main()
     }
 
     // free allocated memory before exit
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++)
+    {
         free(history[i]);
     }
 
