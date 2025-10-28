@@ -1,0 +1,2 @@
+Anujan Kandasamy (kandaa4) - Implemented the core logic using semaphores and designed the TA thread function. 
+Aryan Mistry (mistra21) - Implemented the student thread function and handled command-line argument parsing
