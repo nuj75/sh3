@@ -30,7 +30,7 @@ void clear_backstore(signed char *mmap_pointer)
     munmap(mmap_pointer, 65536);
 }
 
-signed char translate_page(signed char page_number, signed char *backstore_mmap)
+signed char page_table_lookup(signed char page_number, signed char *backstore_mmap)
 {
     signed char page_hit = page_table[page_number];
 
@@ -72,15 +72,32 @@ void add_TLB(signed char page_number, signed char frame_number)
     tlb_tail = (tlb_tail + 1) % 16;
 }
 
-void TLB_update(signed char old_page_number, signed char new_page_number)
+void TLB_update(signed char frame_number, signed char new_page_number)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (tlb_arr[(tlb_tail + 16 - i) % 16] != NULL && tlb_arr[(tlb_tail + 16 - i) % 16]->page_number == old_page_number)
+        if (tlb_arr[(tlb_tail + 16 - i) % 16] != NULL && tlb_arr[(tlb_tail + 16 - i) % 16]->frame_number == frame_number)
         {
             tlb_arr[(tlb_tail + 16 - i) % 16]->page_number = new_page_number;
         }
     }
+}
+
+signed char retrieve_physical(signed char page_number, signed char *backstore_mmap)
+{
+    signed char tlb_lookup = search_TLB(page_number);
+
+    if (tlb_lookup != -1)
+    {
+        return tlb_lookup;
+    }
+
+    signed char frame_number = page_table_lookup(page_number, backstore_mmap);
+
+    TLB_update(frame_number, page_number);
+    add_TLB(page_number, frame_number);
+
+    return frame_number;
 }
 
 int main()
@@ -98,10 +115,9 @@ int main()
         int virtual_addr = atoi(buffer);
         signed char page_number = virtual_addr >> 8;
         signed char offset = (virtual_addr & 0x00FF);
+        signed char frame_number = retrieve_physical(page_number, backstore_mmap);
 
-        signed char physical_address = (translate_page(page_number, backstore_mmap) << 8) + offset;
-
-        // printf("%X\n", physical_address);
+        signed char physical_address = (frame_number << 8) + offset;
     }
 
     clear_backstore(backstore_mmap);
