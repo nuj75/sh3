@@ -34,7 +34,7 @@ signed char page_table_lookup(signed char page_number, signed char *backstore_mm
 {
     signed char page_hit = page_table[page_number];
 
-    if (page_hit & 0xFE == 1)
+    if (page_hit & 0x01 == 1)
     {
         return page_hit >> 1;
     }
@@ -42,6 +42,8 @@ signed char page_table_lookup(signed char page_number, signed char *backstore_mm
     memcpy(memory + memory_tail, backstore_mmap + 256 * page_number, 256);
     signed char frame_number = memory_tail >> 8;
     memory_tail = (memory_tail + 256) % 32768;
+
+    page_table[page_number] = frame_number;
 
     return frame_number;
 }
