@@ -1,0 +1,2 @@
+Anujan Kandasamy (kandaa4) - Implemented the virtual memory system including TLB lookup and page table handling.
+Aryan Mistry (mistra21) - Added page fault processing and address translation output formatting along with debugging. 

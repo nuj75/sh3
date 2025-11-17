@@ -3,122 +3,216 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-struct TLBStruct
+#define PAGE_SIZE 256
+#define NUM_PAGES 256
+#define NUM_FRAMES 128
+#define PHYSICAL_MEMORY_SIZE 32768
+#define TLB_SIZE 16
+#define LOGICAL_ADDRESS_SPACE 65536
+
+
+struct TLBEntry
 {
-    signed char page_number;
-    signed char frame_number;
+    int page_number;
+    int frame_number;
+    int valid; 
 };
 
-struct TLBStruct *tlb_arr[16] = {NULL};
-int tlb_tail = 0;
 
-signed char page_table[256] = {0};
-signed char memory[32768] = {0};
+struct TLBEntry tlb[TLB_SIZE];
+int tlb_tail = 0;
+int page_table[NUM_PAGES];
+signed char physical_memory[PHYSICAL_MEMORY_SIZE];
 int memory_tail = 0;
+int frame_to_page[NUM_FRAMES]; 
+
+
+int page_fault_count = 0;
+int tlb_hit_count = 0;
+int total_addresses = 0;
+
 
 signed char *init_backstore()
 {
     int file = open("BACKING_STORE.bin", O_RDONLY);
-    signed char *mmap_pointer = mmap(0, 65536, PROT_READ, MAP_PRIVATE, file, 0);
-
+    signed char *mmap_pointer = mmap(0, LOGICAL_ADDRESS_SPACE, PROT_READ, MAP_PRIVATE, file, 0);
+    close(file);
     return mmap_pointer;
 }
 
+// Clean up backing store
 void clear_backstore(signed char *mmap_pointer)
 {
-    munmap(mmap_pointer, 65536);
+    munmap(mmap_pointer, LOGICAL_ADDRESS_SPACE);
 }
 
-signed char page_table_lookup(signed char page_number, signed char *backstore_mmap)
+// Initialize data structures
+void initialize()
 {
-    signed char page_hit = page_table[page_number];
-
-    if (page_hit & 0xFE == 1)
+    // Initialize page table to -1 (no page in memory)
+    for (int i = 0; i < NUM_PAGES; i++)
     {
-        return page_hit >> 1;
+        page_table[i] = -1;
     }
+    
+    // Initialize TLB
+    for (int i = 0; i < TLB_SIZE; i++)
+    {
+        tlb[i].valid = 0;
+        tlb[i].page_number = -1;
+        tlb[i].frame_number = -1;
+    }
+    
+    // Initialize frame_to_page mapping
+    for (int i = 0; i < NUM_FRAMES; i++)
+    {
+        frame_to_page[i] = -1;
+    }
+}
 
-    memcpy(memory + memory_tail, backstore_mmap + 256 * page_number, 256);
-    signed char frame_number = memory_tail >> 8;
-    memory_tail = (memory_tail + 256) % 32768;
+// Search TLB for a page number
+int search_TLB(int page_number)
+{
+    for (int i = 0; i < TLB_SIZE; i++)
+    {
+        if (tlb[i].valid && tlb[i].page_number == page_number)
+        {
+            tlb_hit_count++;
+            return tlb[i].frame_number;
+        }
+    }
+    return -1; 
+}
 
+// Add entry to TLB
+void add_TLB(int page_number, int frame_number)
+{
+    tlb[tlb_tail].page_number = page_number;
+    tlb[tlb_tail].frame_number = frame_number;
+    tlb[tlb_tail].valid = 1;
+    tlb_tail = (tlb_tail + 1) % TLB_SIZE;
+}
+
+// Update TLB when a page is replaced
+void TLB_update(int old_page_number)
+{
+    // Find and invalidate the old page's TLB entry
+    for (int i = 0; i < TLB_SIZE; i++)
+    {
+        if (tlb[i].valid && tlb[i].page_number == old_page_number)
+        {
+            tlb[i].valid = 0; 
+            return;
+        }
+    }
+}
+
+
+int handle_page_fault(int page_number, signed char *backstore_mmap)
+{
+    page_fault_count++;
+    
+    int frame_number = memory_tail / PAGE_SIZE;
+    int old_page_number = frame_to_page[frame_number];
+    
+    // If frame is occupied, update old page's page table entry
+    if (old_page_number != -1)
+    {
+        page_table[old_page_number] = -1;
+        // Update TLB if old page has an entry
+        TLB_update(old_page_number);
+    }
+    
+    // Copy page from backing store to physical memory
+    memcpy(physical_memory + (frame_number * PAGE_SIZE), 
+           backstore_mmap + (page_number * PAGE_SIZE), 
+           PAGE_SIZE);
+    
+    // Update page table
+    page_table[page_number] = frame_number;
+    
+    // Update frame_to_page mapping
+    frame_to_page[frame_number] = page_number;
+    
+    // Update memory_tail for FIFO
+    memory_tail = (memory_tail + PAGE_SIZE) % PHYSICAL_MEMORY_SIZE;
+    
     return frame_number;
 }
 
-signed char search_TLB(signed char page_number)
+// Look up page table
+int page_table_lookup(int page_number, signed char *backstore_mmap)
 {
-    for (int i = 0; i < 16; i++)
+    // Check if page is in memory
+    if (page_table[page_number] != -1)
     {
-        if (tlb_arr[(tlb_tail + 16 - i) % 16] != NULL && tlb_arr[(tlb_tail + 16 - i) % 16]->page_number == page_number)
-        {
-            return tlb_arr[(tlb_tail + 16 - i) % 16]->frame_number;
-        }
+        return page_table[page_number];
     }
-
-    return -1;
+    
+    return handle_page_fault(page_number, backstore_mmap);
 }
 
-void add_TLB(signed char page_number, signed char frame_number)
+// Retrieve physical frame number for a page
+int retrieve_physical(int page_number, signed char *backstore_mmap)
 {
-    struct TLBStruct *new_entry = malloc(sizeof(struct TLBStruct));
-    new_entry->page_number = page_number;
-    new_entry->frame_number = frame_number;
-
-    free(tlb_arr[tlb_tail]);
-
-    tlb_arr[tlb_tail] = new_entry;
-
-    tlb_tail = (tlb_tail + 1) % 16;
-}
-
-void TLB_update(signed char frame_number, signed char new_page_number)
-{
-    for (int i = 0; i < 16; i++)
+    // First check TLB
+    int frame_number = search_TLB(page_number);
+    if (frame_number != -1)
     {
-        if (tlb_arr[(tlb_tail + 16 - i) % 16] != NULL && tlb_arr[(tlb_tail + 16 - i) % 16]->frame_number == frame_number)
-        {
-            tlb_arr[(tlb_tail + 16 - i) % 16]->page_number = new_page_number;
-        }
+        return frame_number;
     }
-}
-
-signed char retrieve_physical(signed char page_number, signed char *backstore_mmap)
-{
-    signed char tlb_lookup = search_TLB(page_number);
-
-    if (tlb_lookup != -1)
-    {
-        return tlb_lookup;
-    }
-
-    signed char frame_number = page_table_lookup(page_number, backstore_mmap);
-
-    TLB_update(frame_number, page_number);
+    
+    // If not in TLB, look up page table
+    frame_number = page_table_lookup(page_number, backstore_mmap);
+    
     add_TLB(page_number, frame_number);
-
+    
     return frame_number;
 }
 
 int main()
 {
+    initialize();
+    
     signed char *backstore_mmap = init_backstore();
-
+    
     FILE *fptr = fopen("addresses.txt", "r");
-
+    
     char buffer[100];
-
+    
     while (fgets(buffer, sizeof(buffer), fptr) != NULL)
     {
-        buffer[strlen(buffer) - 2] = '\0';
-
-        int virtual_addr = atoi(buffer);
-        signed char page_number = virtual_addr >> 8;
-        signed char offset = (virtual_addr & 0x00FF);
-        signed char frame_number = retrieve_physical(page_number, backstore_mmap);
-
-        signed char physical_address = (frame_number << 8) + offset;
+        // Parse logical address
+        int logical_address = atoi(buffer);
+        total_addresses++;
+        
+        // Extract page number and offset
+        int page_number = (logical_address >> 8) & 0xFF;
+        int offset = logical_address & 0xFF;
+        
+        // Get frame number
+        int frame_number = retrieve_physical(page_number, backstore_mmap);
+        
+        // Calculate physical address
+        int physical_address = (frame_number * PAGE_SIZE) + offset;
+        
+        // Get value at physical address
+        signed char value = physical_memory[physical_address];
+        
+        // Output results
+        printf("Virtual address: %d Physical address: %d Value: %d\n", 
+               logical_address, physical_address, value);
     }
-
+    
+    // Output statistics
+    printf("Number of Translated Addresses = %d\n", total_addresses);
+    printf("Page Faults = %d\n", page_fault_count);
+    printf("TLB Hits = %d\n", tlb_hit_count);
+    
+    fclose(fptr);
     clear_backstore(backstore_mmap);
+    
+    return 0;
 }
