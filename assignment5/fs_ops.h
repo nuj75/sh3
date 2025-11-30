@@ -1,6 +1,10 @@
 #ifndef fsops
 
 #define fsops
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <string.h>
 
 #define BLOCK_SIZE 1024
 #define TOTAL_BLOCKS 64
@@ -12,7 +16,7 @@ struct block
     int block_number;
 };
 
-struct file_information
+struct FileInformation
 {
     int id;
     char name[32];
@@ -37,7 +41,7 @@ struct VolumeControlBlock
 {
     struct FreeBlockList free_block_list;
     struct block blocks[TOTAL_BLOCKS];
-    struct file_information *files[MAX_FILES];
+    struct FileInformation *files[MAX_FILES];
     int status[MAX_FILES];
     int num_files_made;
 };
@@ -54,6 +58,7 @@ struct block *allocateFreeBlock();
 void returnFreeBlock(struct block *block);
 void printFreeBlocks();
 void deleteFile(const char *filename);
+int getFileInformationBlockId();
 
 extern struct FileSystem fs;
 #endif
