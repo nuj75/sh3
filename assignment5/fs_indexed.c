@@ -116,6 +116,9 @@ void printFreeBlocks()
 struct block *allocateFreeBlock()
 {
     struct FreeBlockNode *head_block_node = fs.vcb.free_block_list.head;
+    if (head_block_node == NULL)
+        return NULL;
+
     struct block *returnBlock = head_block_node->blk;
     fs.vcb.free_block_list.head = fs.vcb.free_block_list.head->next;
 
