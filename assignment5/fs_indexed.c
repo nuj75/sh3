@@ -147,7 +147,7 @@ void createFile(const char *filename, int size)
     // check if there is enough space for the file.
     // check if the size of the file is small enough so that the
     //      index block can contain all necessary blocks
-    if (fs.vcb.free_block_list.count * BLOCK_SIZE < size || BLOCK_SIZE * BLOCK_SIZE / 8 < size)
+    if (fs.vcb.free_block_list.count * BLOCK_SIZE < size || BLOCK_SIZE * BLOCK_SIZE / sizeof(struct block *) < size)
     {
         printf("Not enough space\n");
         return;
