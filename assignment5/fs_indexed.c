@@ -32,7 +32,7 @@ void init_FS()
         new_block->block_number = i;
         vcb->blocks[i] = *new_block;
 
-        struct FreeBlockNode *node = malloc(sizeof(struct FreeBlockNode));
+        struct FreeBlockNode *node = malloc(sizeof(struct FreeBlockNode)); // freed when block is allocated to file
         node->blk = new_block;
         if (fb_list->head != (struct FreeBlockNode *)-1)
             node->next = fb_list->head;
@@ -173,17 +173,22 @@ void createFile(const char *filename, int size)
     fs.vcb.num_files_made += 1;
 }
 
+/**
+ * Delete file from file system.
+ *
+ * Find file in the file array.
+ * Return all data blocks.
+ * Push file id into stack.
+ * Free FIB struct.
+ */
 void deleteFile(const char *filename)
 {
     int i = -1;
 
-    // loop that quits if file doesn't exist, and continues with i as the right index otherwise
+    // Iterate through the file array and break if the file name is the same as the param.
+    // If the file is not in the array, then print error message and return
     while (fs.vcb.files[++i] == NULL || strcmp(fs.vcb.files[i]->name, filename) != 0)
     {
-        if (fs.vcb.files[i] != NULL)
-        {
-            printf("||%s||\n", fs.vcb.files[i]->name);
-        }
         if ((i + 1) >= MAX_FILES)
         {
             printf("File not found\n");
@@ -191,21 +196,22 @@ void deleteFile(const char *filename)
         }
     }
 
+    // return all data blocks and the index block to the file system
     for (int j = 0; j < fs.vcb.files[i]->block_count - 1; j++)
     {
         struct block *block_to_free;
         memcpy(&block_to_free, fs.vcb.files[i]->index_block->data + j * 8, 8);
         returnFreeBlock(block_to_free);
     }
-
     returnFreeBlock(fs.vcb.files[i]->index_block);
-    free(fs.vcb.files[i]->index_block);
 
-    struct FileIds *new_file_id = malloc(sizeof(struct FileIds));
+    // push file id into the FileIds stack
+    struct FileIds *new_file_id = malloc(sizeof(struct FileIds)); // freed when file id is retrieved
     new_file_id->id = fs.vcb.files[i]->id;
     new_file_id->next = file_id_head;
     file_id_head = new_file_id;
 
+    // free file information block
     free(fs.vcb.files[i]);
     fs.vcb.files[i] = NULL;
     fs.vcb.num_files_made -= 1;
@@ -213,6 +219,11 @@ void deleteFile(const char *filename)
     printf("File '%s' deleted.\n", filename);
 }
 
+/**
+ * Print information about all files in the system.
+ *
+ * Iterate through file array and print information from the FIB struct
+ */
 void listFiles()
 {
     printf("Root Directory Listing (%d files)\n", fs.vcb.num_files_made);
@@ -225,14 +236,14 @@ void listFiles()
         }
 
         printf("%s", fs.vcb.files[i]->name);
-        for (int j = 0; j < 15 - strlen(fs.vcb.files[i]->name); j++)
+        for (int j = 0; j < 15 - strlen(fs.vcb.files[i]->name); j++) // align text
         {
             printf(" ");
         }
 
         printf("|");
 
-        for (int j = 0; j < 15 - log10(fs.vcb.files[i]->file_size) - 6; j++)
+        for (int j = 0; j < 15 - log10(fs.vcb.files[i]->file_size) - 6; j++) // align text
         {
             printf(" ");
         }
