@@ -44,16 +44,15 @@ void init_FS()
 
     // create free file id list
     file_id_head = NULL;
-    for (int i = MAX_FILES - 1; i >= 0; i--)
+    for (int i = 0; i < MAX_FILES; i++)
     {
         struct FileIds *temp = malloc(sizeof(struct FileIds)); // freed when id is retrieved
         temp->id = i;
-        if (file_id_head != NULL)
-            temp->next = file_id_head;
+        temp->next = file_id_head;
         file_id_head = temp;
     }
 
-    printf("Filesystem initialized with %d blocks of %d bytes each.\n", TOTAL_BLOCKS, BLOCK_SIZE);
+    printf("Filesystem initialized with %d blocks of %d bytes each.", TOTAL_BLOCKS, BLOCK_SIZE);
 }
 
 /**
@@ -104,12 +103,14 @@ void printFreeBlocks()
 
     printf("Free Blocks (%d): ", fs.vcb.free_block_list.count);
 
-    while (block_pointer->next != NULL)
+    while (block_pointer != NULL)
     {
-        printf("[%d] ->", block_pointer->blk->block_number);
+        printf("[%d]", block_pointer->blk->block_number);
+        if (block_pointer->next != NULL)
+            printf(" ->");
         block_pointer = block_pointer->next;
     }
-    printf("[%d]\n", block_pointer->blk->block_number);
+    printf(" -> NULL\n");
 }
 
 /**
@@ -190,7 +191,7 @@ void createFile(const char *filename, int size)
 
     fs.vcb.num_files_made += 1;
 
-    printf("File '%s' created.\n", filename);
+    printf("File '%s' created with %d data blocks + 1 index block.\n", filename, data_block_count);
 }
 
 /**
@@ -263,9 +264,9 @@ void listFiles()
         if (fs.vcb.files[i] == NULL)
             continue;
 
-        int actual_data_blocks = fs.vcb.files[i]->block_count - 1; // 🔧 FIX
+        int actual_data_blocks = fs.vcb.files[i]->block_count - 1;
 
-        printf("%s | %d bytes | %d data blocks | FIBID=%d\n",
+        printf("  %-8s | %5d bytes |  %d data blocks | FIBID=%d\n",
                fs.vcb.files[i]->name,
                fs.vcb.files[i]->file_size,
                actual_data_blocks,
