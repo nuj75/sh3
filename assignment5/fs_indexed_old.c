@@ -20,39 +20,40 @@ struct FileIds
  */
 void init_FS()
 {
+    // create vcb to place into file system
+    struct VolumeControlBlock *vcb = malloc(sizeof(struct VolumeControlBlock));
+    vcb->num_files_made = 0;
 
-    fs.vcb.num_files_made = 0;
-
-    fs.vcb.free_block_list.count = TOTAL_BLOCKS;
-    fs.vcb.free_block_list.head = NULL;
+    // create blocks and place them into the free block list
+    struct FreeBlockList *fb_list = malloc(sizeof(struct FreeBlockList));
+    fb_list->count = TOTAL_BLOCKS;
+    fb_list->head = NULL;
     for (int i = TOTAL_BLOCKS - 1; i >= 0; i--)
     {
-        fs.vcb.blocks[i].block_number = i;
+        vcb->blocks[i].block_number = i;
 
         struct FreeBlockNode *node = malloc(sizeof(struct FreeBlockNode)); // freed when block is allocated to file
-        node->blk = &fs.vcb.blocks[i];
-
-        node->next = fs.vcb.free_block_list.head;
-        fs.vcb.free_block_list.head = node;
+        node->blk = &vcb->blocks[i];
+        if (fb_list->head != NULL)
+            node->next = fb_list->head;
+        fb_list->head = node;
     }
     // put free block list into vcb and the vcb into the file system
-    for (int i = 0; i < MAX_FILES; i++)
-    {
-        fs.vcb.files[i] = NULL;
-        fs.vcb.status[i] = 0;
-    }
+    vcb->free_block_list = *fb_list;
+    fs.vcb = *vcb;
 
     // create free file id list
     file_id_head = NULL;
-    for (int i = 0; i < MAX_FILES; i++)
+    for (int i = MAX_FILES - 1; i >= 0; i--)
     {
         struct FileIds *temp = malloc(sizeof(struct FileIds)); // freed when id is retrieved
         temp->id = i;
-        temp->next = file_id_head;
+        if (file_id_head != NULL)
+            temp->next = file_id_head;
         file_id_head = temp;
     }
 
-    printf("Filesystem initialized with %d blocks of %d bytes each.", TOTAL_BLOCKS, BLOCK_SIZE);
+    printf("Filesystem initialized with %d blocks of %d bytes each.\n", TOTAL_BLOCKS, BLOCK_SIZE);
 }
 
 /**
@@ -62,9 +63,6 @@ void init_FS()
  */
 int getFileInformationBlockId()
 {
-    if (file_id_head == NULL)
-        return -1;
-
     struct FileIds *temp = file_id_head;
 
     int new_id = file_id_head->id;
@@ -102,15 +100,12 @@ void printFreeBlocks()
     struct FreeBlockNode *block_pointer = fs.vcb.free_block_list.head;
 
     printf("Free Blocks (%d): ", fs.vcb.free_block_list.count);
-
-    while (block_pointer != NULL)
+    while (block_pointer->next != NULL)
     {
-        printf("[%d]", block_pointer->blk->block_number);
-        if (block_pointer->next != NULL)
-            printf(" ->");
+        printf("[%d] ->", block_pointer->blk->block_number);
         block_pointer = block_pointer->next;
     }
-    printf(" -> NULL\n");
+    printf("[%d]\n", block_pointer->blk->block_number);
 }
 
 /**
@@ -152,46 +147,35 @@ void createFile(const char *filename, int size)
     // check if there is enough space for the file.
     // check if the size of the file is small enough so that the
     //      index block can contain all necessary blocks
-    int data_block_count = ceil((double)size / BLOCK_SIZE);
-
-    int index_capacity = BLOCK_SIZE / sizeof(struct block *);
-    if (data_block_count > index_capacity)
+    if (fs.vcb.free_block_list.count * BLOCK_SIZE < size || BLOCK_SIZE * BLOCK_SIZE / sizeof(struct block *) < size)
     {
-        printf("File too large for indexed allocation.\n");
+        printf("Not enough space\n");
         return;
     }
 
-    // allocate index block
+    // allocate blocks and put their addresses into the index block
+    int data_block_count = ceil((double)size / (double)BLOCK_SIZE);
     struct block *index_block = allocateFreeBlock();
-
-    // allocate data blocks and store in index block
     for (int i = 0; i < data_block_count; i++)
     {
-        struct block *data_block = allocateFreeBlock();
-
-        memcpy(index_block->data + i * sizeof(struct block *),
-               &data_block,
-               sizeof(struct block *));
+        void *block = allocateFreeBlock();
+        memcpy(index_block->data + i * 8, &block, sizeof(struct block *));
     }
+
     // create file information block and insert appropriate information
     int file_index = 0;
-    while (file_index < MAX_FILES && fs.vcb.files[file_index] != NULL)
+    while (fs.vcb.files[file_index] != NULL)
         file_index++;
-
-    fs.vcb.files[file_index] = malloc(sizeof(struct FileInformation));
-
+    fs.vcb.files[file_index] = malloc(sizeof(struct FileInformation)); // freed when file is deleted
     int file_id = getFileInformationBlockId();
 
     fs.vcb.files[file_index]->id = file_id;
     snprintf(fs.vcb.files[file_index]->name, sizeof(fs.vcb.files[file_index]->name), "%s", filename);
-
     fs.vcb.files[file_index]->block_count = data_block_count + 1;
     fs.vcb.files[file_index]->index_block = index_block;
     fs.vcb.files[file_index]->file_size = size;
 
     fs.vcb.num_files_made += 1;
-
-    printf("File '%s' created with %d data blocks + 1 index block.\n", filename, data_block_count);
 }
 
 /**
@@ -204,36 +188,26 @@ void createFile(const char *filename, int size)
  */
 void deleteFile(const char *filename)
 {
-    int i = 0;
+    int i = -1;
 
     // Iterate through the file array and break if the file name is the same as the param.
     // If the file is not in the array, then print error message and return
-    while (i < MAX_FILES)
+    while (fs.vcb.files[++i] == NULL || strcmp(fs.vcb.files[i]->name, filename) != 0)
     {
-        if (fs.vcb.files[i] != NULL &&
-            strcmp(fs.vcb.files[i]->name, filename) == 0)
-            break;
-
-        i++;
-    }
-
-    if (i == MAX_FILES)
-    {
-        printf("File not found\n");
-        return;
+        if ((i + 1) >= MAX_FILES)
+        {
+            printf("File not found\n");
+            return;
+        }
     }
 
     // return all data blocks and the index block to the file system
-    int data_blocks = fs.vcb.files[i]->block_count - 1;
-    for (int j = 0; j < data_blocks; j++)
+    for (int j = 0; j < fs.vcb.files[i]->block_count - 1; j++)
     {
         struct block *block_to_free;
-
-        memcpy(&block_to_free, fs.vcb.files[i]->index_block->data + j * sizeof(struct block *), sizeof(struct block *));
-
+        memcpy(&block_to_free, fs.vcb.files[i]->index_block->data + j * 8, sizeof(struct block *));
         returnFreeBlock(block_to_free);
     }
-
     returnFreeBlock(fs.vcb.files[i]->index_block);
 
     // push file id into the FileIds stack
@@ -257,19 +231,30 @@ void deleteFile(const char *filename)
  */
 void listFiles()
 {
-    printf("Root Directory Listing (%d files):\n", fs.vcb.num_files_made);
+    printf("Root Directory Listing (%d files)\n", fs.vcb.num_files_made);
 
     for (int i = 0; i < MAX_FILES; i++)
     {
         if (fs.vcb.files[i] == NULL)
+        {
             continue;
+        }
 
-        int actual_data_blocks = fs.vcb.files[i]->block_count - 1;
+        printf("%s", fs.vcb.files[i]->name);
+        for (int j = 0; j < 15 - strlen(fs.vcb.files[i]->name); j++) // align text
+        {
+            printf(" ");
+        }
 
-        printf("  %-8s | %5d bytes |  %d data blocks | FIBID=%d\n",
-               fs.vcb.files[i]->name,
-               fs.vcb.files[i]->file_size,
-               actual_data_blocks,
-               fs.vcb.files[i]->id);
+        printf("|");
+
+        for (int j = 0; j < 15 - MAX(1, log10(fs.vcb.files[i]->file_size)) - 6; j++) // align text
+        {
+            printf(" ");
+        }
+
+        printf("%d bytes |", fs.vcb.files[i]->file_size);
+
+        printf("  %d data blocks | FIB ID:=%d\n", fs.vcb.files[i]->block_count, fs.vcb.files[i]->id);
     }
 }

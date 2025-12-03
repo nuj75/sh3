@@ -1,6 +1,6 @@
-#ifndef fsops
+#ifndef fsindexed
 
-#define fsops
+#define fsindexed
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

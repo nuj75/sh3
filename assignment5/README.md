@@ -1,0 +1,2 @@
+Anujan Kandasamy (kandaa4) - Implemented file system initialization, free block management, and part of file creation.
+Aryan Mistry (mistra21) - Implemented file deletion, file listing, free block display, and part of file creation.
